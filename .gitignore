@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Local Environment Configurations (Sensitive Keys)
+.env
+backend/.env
+frontend/.env
+
+# Production builds
+frontend/dist/
+
+# System logs and temporary files
+*.log
+.DS_Store
+Thumbs.db
+.system_generated/
+/scratch/
+.gemini/
