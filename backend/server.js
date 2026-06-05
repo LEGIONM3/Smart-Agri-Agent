@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
@@ -49,6 +50,55 @@ app.get('/api/config', (req, res) => {
     agentEnvironmentId: process.env.IBM_ORCHESTRATE_AGENT_ENV_ID || 'live',
     script: scriptContent || '' // Serve the raw script code if found
   });
+});
+
+// Endpoint to generate signed JWT for watsonx Orchestrate secure web chat
+app.get('/api/jwt', (req, res) => {
+  const privateKey = process.env.IBM_ORCHESTRATE_PRIVATE_KEY;
+  if (!privateKey || privateKey.trim() === '') {
+    return res.status(400).json({ 
+      error: "IBM_ORCHESTRATE_PRIVATE_KEY is missing in backend/.env. Please add it to generate secure JWT tokens." 
+    });
+  }
+
+  try {
+    const header = { alg: "RS256", typ: "JWT" };
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      sub: "agri_user_" + Math.random().toString(36).substr(2, 9),
+      iss: "agriculture_handbook_backend",
+      exp: now + 3600, // Expires in 1 hour
+      iat: now
+    };
+
+    const base64UrlEncode = (obj) => {
+      return Buffer.from(JSON.stringify(obj))
+        .toString('base64')
+        .replace(/=/g, '')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
+    };
+
+    const encodedHeader = base64UrlEncode(header);
+    const encodedPayload = base64UrlEncode(payload);
+    const signatureInput = `${encodedHeader}.${encodedPayload}`;
+
+    // Clean up private key string if they paste it with literal \n instead of actual newlines
+    const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
+
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(signatureInput);
+    const signature = sign.sign(formattedPrivateKey, 'base64')
+      .replace(/=/g, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+
+    const token = `${signatureInput}.${signature}`;
+    res.json({ token });
+  } catch (err) {
+    console.error("Failed to generate JWT:", err);
+    res.status(500).json({ error: "Internal error generating JWT: " + err.message });
+  }
 });
 
 // Endpoint to check status of the IBM Agent config

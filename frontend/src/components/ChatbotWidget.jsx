@@ -162,26 +162,43 @@ export default function ChatbotWidget() {
         }
       };
 
-      // 5. Inject entry loader
-      const script = document.createElement('script');
-      script.src = `${hostClean}/wxochat/wxoLoader.js?embed=true`;
-      script.async = true;
+      // 5. Fetch JWT token from local backend if available to support Secure Mode
+      fetch('http://localhost:5000/api/jwt')
+        .then(res => {
+          if (!res.ok) throw new Error("Backend token endpoint returned " + res.status);
+          return res.json();
+        })
+        .then(data => {
+          if (data.token) {
+            window.wxOConfiguration.token = data.token;
+            console.log("watsonx Orchestrate secure JWT token attached successfully.");
+          }
+        })
+        .catch(err => {
+          console.warn("Secure token generation skipped or unavailable: ", err.message);
+        })
+        .finally(() => {
+          // Inject entry loader
+          const script = document.createElement('script');
+          script.src = `${hostClean}/wxochat/wxoLoader.js?embed=true`;
+          script.async = true;
 
-      script.addEventListener('load', () => {
-        if (window.wxoLoader && typeof window.wxoLoader.init === 'function') {
-          window.wxoLoader.init();
-          console.log("watsonx Orchestrate chat channel initialized successfully.");
-        } else {
-          console.warn("watsonx Orchestrate: wxoLoader.init function not found on script window.");
-        }
-      });
+          script.addEventListener('load', () => {
+            if (window.wxoLoader && typeof window.wxoLoader.init === 'function') {
+              window.wxoLoader.init();
+              console.log("watsonx Orchestrate chat channel initialized successfully.");
+            } else {
+              console.warn("watsonx Orchestrate: wxoLoader.init function not found on script window.");
+            }
+          });
 
-      script.addEventListener('error', (err) => {
-        console.error("Failed to load watsonx Orchestrate script from:", script.src, err);
-      });
+          script.addEventListener('error', (err) => {
+            console.error("Failed to load watsonx Orchestrate script from:", script.src, err);
+          });
 
-      document.head.appendChild(script);
-      console.log("watsonx Orchestrate integration active. Settings: ", window.wxOConfiguration);
+          document.head.appendChild(script);
+          console.log("watsonx Orchestrate integration active. Settings: ", window.wxOConfiguration);
+        });
 
     } catch (err) {
       console.error("Fatal error during watsonx Orchestrate script load: ", err);
